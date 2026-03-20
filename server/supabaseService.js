@@ -21,8 +21,24 @@ function createId(prefix) {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function sanitizeStorageSegment(value) {
+  return String(value || "")
+    .normalize("NFKD")
+    .replace(/[^\w.-]/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 80) || "item";
+}
+
 export function getProviderBucket() {
   return audioBucket;
+}
+
+export function buildStoragePath({ userId, folderName, fileName, kind }) {
+  const userKey = sanitizeStorageSegment(userId);
+  const folderKey = sanitizeStorageSegment(folderName);
+  const fileKey = sanitizeStorageSegment(fileName);
+  return `${userKey}/${folderKey}/${kind}_${Date.now()}_${fileKey}`;
 }
 
 export function buildPublicUrl(path) {
@@ -150,9 +166,11 @@ export async function renameFolder(userId, oldName, newName) {
   const next = String(newName || "").trim();
   if (!next) throw new Error("새 폴더명을 입력해 주세요.");
   await createFolder(userId, next);
+  const oldKey = sanitizeStorageSegment(oldName);
+  const newKey = sanitizeStorageSegment(next);
   const audioItems = await listAudioMetaByUser(userId, oldName);
   for (const item of audioItems) {
-    const nextPath = item.storagePath.replace(`/${oldName}/`, `/${next}/`);
+    const nextPath = item.storagePath.replace(`/${oldKey}/`, `/${newKey}/`);
     await moveStorageObject(item.storagePath, nextPath);
     await supabase
       .from("audios")
@@ -165,7 +183,7 @@ export async function renameFolder(userId, oldName, newName) {
   }
   const docs = await listDocsByUser(userId, oldName);
   for (const item of docs) {
-    const nextPath = item.storagePath.replace(`/${oldName}/`, `/${next}/`);
+    const nextPath = item.storagePath.replace(`/${oldKey}/`, `/${newKey}/`);
     await moveStorageObject(item.storagePath, nextPath);
     await supabase
       .from("docs")

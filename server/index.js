@@ -13,6 +13,7 @@ import {
   transcribeAudioFile,
 } from "./analysisService.js";
 import {
+  buildStoragePath,
   createFolder,
   createUser,
   deleteDraftById,
@@ -41,6 +42,10 @@ import {
 
 const app = express();
 const port = Number(process.env.API_PORT || process.env.PORT || 8090);
+const asyncRoute =
+  (handler) =>
+  (req, res, next) =>
+    Promise.resolve(handler(req, res, next)).catch(next);
 
 app.use(cors());
 app.use(express.json({ limit: "2mb" }));
@@ -58,7 +63,7 @@ app.get("/api/providers", (_req, res) => {
   res.json(getProviderStatus());
 });
 
-app.post("/api/auth/register", async (req, res) => {
+app.post("/api/auth/register", asyncRoute(async (req, res) => {
   const { email, password, displayName } = req.body || {};
   if (!email || !password) {
     res.status(400).json({ message: "이메일과 비밀번호를 입력해 주세요." });
@@ -73,9 +78,9 @@ app.post("/api/auth/register", async (req, res) => {
   const user = await createUser({ email, passwordHash, displayName });
   const token = signToken(user.id);
   res.json({ token, user });
-});
+}));
 
-app.post("/api/auth/login", async (req, res) => {
+app.post("/api/auth/login", asyncRoute(async (req, res) => {
   const { email, password } = req.body || {};
   const user = await findUserByEmail(email);
   if (!user) {
@@ -89,25 +94,25 @@ app.post("/api/auth/login", async (req, res) => {
   }
   const token = signToken(user.id);
   res.json({ token, user: { id: user.id, email: user.email, displayName: user.displayName } });
-});
+}));
 
-app.get("/api/auth/me", requireAuth, async (req, res) => {
+app.get("/api/auth/me", requireAuth, asyncRoute(async (req, res) => {
   const user = await findUserById(req.userId);
   if (!user) {
     res.status(404).json({ message: "사용자를 찾지 못했습니다." });
     return;
   }
   res.json(user);
-});
+}));
 
-app.patch("/api/auth/me", requireAuth, async (req, res) => {
+app.patch("/api/auth/me", requireAuth, asyncRoute(async (req, res) => {
   const updated = await updateUserProfile(req.userId, req.body || {});
   if (!updated) {
     res.status(404).json({ message: "사용자를 찾지 못했습니다." });
     return;
   }
   res.json(updated);
-});
+}));
 
 app.post("/api/analyze-song", requireAuth, async (req, res) => {
   try {
@@ -121,11 +126,11 @@ app.post("/api/analyze-song", requireAuth, async (req, res) => {
   }
 });
 
-app.get("/api/templates", requireAuth, async (req, res) => {
+app.get("/api/templates", requireAuth, asyncRoute(async (req, res) => {
   res.json({ items: await listTemplatesByUser(req.userId) });
-});
+}));
 
-app.post("/api/templates", requireAuth, async (req, res) => {
+app.post("/api/templates", requireAuth, asyncRoute(async (req, res) => {
   const body = req.body || {};
   if (!body.content?.trim()) {
     res.status(400).json({ message: "템플릿 내용이 비어 있습니다." });
@@ -138,17 +143,17 @@ app.post("/api/templates", requireAuth, async (req, res) => {
     meta: body.meta || {},
   });
   res.json(saved);
-});
+}));
 
-app.delete("/api/templates/:id", requireAuth, async (req, res) => {
+app.delete("/api/templates/:id", requireAuth, asyncRoute(async (req, res) => {
   res.json({ ok: await deleteTemplate(req.params.id) });
-});
+}));
 
-app.get("/api/drafts", requireAuth, async (req, res) => {
+app.get("/api/drafts", requireAuth, asyncRoute(async (req, res) => {
   res.json({ items: await listDraftsByUser(req.userId) });
-});
+}));
 
-app.post("/api/drafts", requireAuth, async (req, res) => {
+app.post("/api/drafts", requireAuth, asyncRoute(async (req, res) => {
   const body = req.body || {};
   const saved = await saveDraft({
     userId: req.userId,
@@ -157,53 +162,58 @@ app.post("/api/drafts", requireAuth, async (req, res) => {
     refAudioId: body.refAudioId,
   });
   res.json(saved);
-});
+}));
 
-app.patch("/api/drafts/:id", requireAuth, async (req, res) => {
+app.patch("/api/drafts/:id", requireAuth, asyncRoute(async (req, res) => {
   const updated = await updateDraftById(req.params.id, req.body || {});
   if (!updated) {
     res.status(404).json({ message: "임시 저장본을 찾지 못했습니다." });
     return;
   }
   res.json(updated);
-});
+}));
 
-app.delete("/api/drafts/:id", requireAuth, async (req, res) => {
+app.delete("/api/drafts/:id", requireAuth, asyncRoute(async (req, res) => {
   res.json({ ok: await deleteDraftById(req.params.id) });
-});
+}));
 
-app.get("/api/audio/folders", requireAuth, async (req, res) => {
+app.get("/api/audio/folders", requireAuth, asyncRoute(async (req, res) => {
   res.json({ folders: await listFoldersByUser(req.userId) });
-});
+}));
 
-app.post("/api/audio/folders", requireAuth, async (req, res) => {
+app.post("/api/audio/folders", requireAuth, asyncRoute(async (req, res) => {
   const folderName = await createFolder(req.userId, req.body?.folderName || "default");
   res.json({ folderName });
-});
+}));
 
-app.patch("/api/audio/folders/:folderName", requireAuth, async (req, res) => {
+app.patch("/api/audio/folders/:folderName", requireAuth, asyncRoute(async (req, res) => {
   const folderName = await renameFolder(req.userId, req.params.folderName, req.body?.newFolderName);
   res.json({ folderName });
-});
+}));
 
-app.delete("/api/audio/folders/:folderName", requireAuth, async (req, res) => {
+app.delete("/api/audio/folders/:folderName", requireAuth, asyncRoute(async (req, res) => {
   res.json({ ok: await deleteFolder(req.userId, req.params.folderName) });
-});
+}));
 
-app.get("/api/audio/files", requireAuth, async (req, res) => {
+app.get("/api/audio/files", requireAuth, asyncRoute(async (req, res) => {
   const folderName = String(req.query.folderName || "default");
   const files = await listAudioMetaByUser(req.userId, folderName);
   res.json({ items: files });
-});
+}));
 
-app.post("/api/audio/upload", requireAuth, upload.single("audio"), async (req, res) => {
+app.post("/api/audio/upload", requireAuth, upload.single("audio"), asyncRoute(async (req, res) => {
   if (!req.file) {
     res.status(400).json({ message: "업로드 파일이 없습니다." });
     return;
   }
   const folderName = req.body.folderName || "default";
   await createFolder(req.userId, folderName);
-  const storagePath = `${req.userId}/${folderName}/audio_${Date.now()}_${req.file.originalname}`;
+  const storagePath = buildStoragePath({
+    userId: req.userId,
+    folderName,
+    fileName: req.file.originalname,
+    kind: "audio",
+  });
   await uploadFileToStorage(storagePath, req.file.buffer, req.file.mimetype);
   const item = await saveAudioMeta({
     userId: req.userId,
@@ -214,16 +224,21 @@ app.post("/api/audio/upload", requireAuth, upload.single("audio"), async (req, r
     storagePath,
   });
   res.json(item);
-});
+}));
 
-app.post("/api/docs/upload", requireAuth, upload.single("audio"), async (req, res) => {
+app.post("/api/docs/upload", requireAuth, upload.single("audio"), asyncRoute(async (req, res) => {
   if (!req.file) {
     res.status(400).json({ message: "업로드 파일이 없습니다." });
     return;
   }
   const folderName = req.body.folderName || "default";
   await createFolder(req.userId, folderName);
-  const storagePath = `${req.userId}/${folderName}/doc_${Date.now()}_${req.file.originalname}`;
+  const storagePath = buildStoragePath({
+    userId: req.userId,
+    folderName,
+    fileName: req.file.originalname,
+    kind: "doc",
+  });
   await uploadFileToStorage(storagePath, req.file.buffer, req.file.mimetype);
   const item = await saveDocMeta({
     userId: req.userId,
@@ -234,15 +249,15 @@ app.post("/api/docs/upload", requireAuth, upload.single("audio"), async (req, re
     storagePath,
   });
   res.json(item);
-});
+}));
 
-app.get("/api/docs/files", requireAuth, async (req, res) => {
+app.get("/api/docs/files", requireAuth, asyncRoute(async (req, res) => {
   const folderName = String(req.query.folderName || "default");
   const files = await listDocsByUser(req.userId, folderName);
   res.json({ items: files });
-});
+}));
 
-app.delete("/api/docs/files/:id", requireAuth, async (req, res) => {
+app.delete("/api/docs/files/:id", requireAuth, asyncRoute(async (req, res) => {
   const target = await removeDocMeta(req.params.id);
   if (!target) {
     res.json({ ok: false });
@@ -250,9 +265,9 @@ app.delete("/api/docs/files/:id", requireAuth, async (req, res) => {
   }
   await deleteStorageObject(target.storagePath);
   res.json({ ok: true });
-});
+}));
 
-app.delete("/api/audio/files/:id", requireAuth, async (req, res) => {
+app.delete("/api/audio/files/:id", requireAuth, asyncRoute(async (req, res) => {
   const target = await removeAudioMeta(req.params.id);
   if (!target) {
     res.json({ ok: false });
@@ -260,7 +275,7 @@ app.delete("/api/audio/files/:id", requireAuth, async (req, res) => {
   }
   await deleteStorageObject(target.storagePath);
   res.json({ ok: true });
-});
+}));
 
 app.post("/api/audio/analyze/:id", requireAuth, async (req, res) => {
   try {
@@ -293,6 +308,18 @@ app.post("/api/audio/analyze/:id", requireAuth, async (req, res) => {
       detail: error instanceof Error ? error.message : "unknown error",
     });
   }
+});
+
+app.use((error, _req, res, _next) => {
+  console.error("[api-error]", error);
+  const detail = error instanceof Error ? error.message : "unknown error";
+  const isStorageRls = /row-level security policy/i.test(detail);
+  res.status(500).json({
+    message: isStorageRls
+      ? "Supabase Storage 권한 오류입니다. SERVICE_ROLE_KEY 또는 버킷 정책을 확인해 주세요."
+      : "서버 처리 중 오류가 발생했습니다.",
+    detail,
+  });
 });
 
 const distDir = path.resolve("dist");
