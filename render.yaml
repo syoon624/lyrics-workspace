@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: lyrics-workspace
+    env: node
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: API_PORT
+        value: 10000
+      - key: JWT_SECRET
+        generateValue: true
