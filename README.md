@@ -1,4 +1,4 @@
-# 작사 워크스페이스 (React + API)
+# 작사 워크스페이스 (React + API, Supabase)
 
 링크/오디오 기반 컨텍스트를 수집하고, AI로 Verse / Pre-Chorus / Chorus / Bridge 작사 가이드를 생성하는 웹앱입니다.
 
@@ -7,10 +7,11 @@
 - React 프론트엔드 (Vite, `localhost:8080`)
 - Express API 서버 (`localhost:8090`)
 - 모델 공급자 선택: OpenAI / Gemini
-- 템플릿 DB 저장소 (로컬 JSON DB)
-- 오디오 라이브러리:
-  - 폴더 생성/삭제
+- 템플릿/초안/사용자 DB (Supabase Postgres)
+- 오디오/문서 저장소:
+  - 폴더 생성/이름변경/삭제
   - 오디오 업로드/삭제/재생
+  - 문서 업로드/삭제
   - 업로드 오디오 전사 기반 AI 초안 생성
 - 데모곡 링크/제목 기반 컨텍스트 수집
   - YouTube: 페이지 정보 + 자막(가능한 경우)
@@ -32,6 +33,14 @@ npm install
 
 - `.env.example`를 복사해 `.env` 생성
 - `OPENAI_API_KEY` 입력(선택)
+
+추가로 Supabase 값 입력:
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `SUPABASE_STORAGE_BUCKET` (기본 `lyrics-files`)
+
+Supabase SQL Editor에서 `supabase/schema.sql` 실행 후,
+Storage에 Public 버킷(`lyrics-files`)을 만들어 주세요.
 
 3. 개발 서버 실행
 
@@ -72,6 +81,9 @@ npm start
   - `OPENAI_API_KEY` (선택)
   - `GEMINI_API_KEY` (선택)
   - `JWT_SECRET` (필수)
+  - `SUPABASE_URL` (필수)
+  - `SUPABASE_SERVICE_ROLE_KEY` (필수)
+  - `SUPABASE_STORAGE_BUCKET` (필수)
 
 ### 2) Railway 배포
 
@@ -97,6 +109,9 @@ docker run -p 8090:8090 --env-file .env lyrics-workspace
 - `OPENAI_TRANSCRIBE_MODEL`: 기본 `whisper-1`
 - `GEMINI_API_KEY`: Gemini API 키 (선택)
 - `GEMINI_MODEL`: 기본 `gemini-1.5-flash`
+- `SUPABASE_URL`: Supabase 프로젝트 URL (필수)
+- `SUPABASE_SERVICE_ROLE_KEY`: Supabase Service Role 키 (필수)
+- `SUPABASE_STORAGE_BUCKET`: 스토리지 버킷명 (기본 `lyrics-files`)
 - `JWT_SECRET`: 인증 토큰 서명키 (필수)
 - `API_PORT` 또는 `PORT`: 기본 `8090`
 

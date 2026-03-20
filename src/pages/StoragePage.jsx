@@ -127,7 +127,7 @@ export default function StoragePage() {
                 {audioFiles.map((a) => (
                   <li key={a.id} className="audio-item">
                     <span>{a.originalName}</span>
-                    <audio controls src={`/media/${a.relativePath}`} />
+                    <audio controls src={a.publicUrl} />
                     <button type="button" className="danger" onClick={async () => { await api.delete(`/api/audio/files/${a.id}`); loadFiles(selected); }}>삭제</button>
                   </li>
                 ))}
@@ -141,7 +141,7 @@ export default function StoragePage() {
               <ul className="audio-list">
                 {docFiles.map((d) => (
                   <li key={d.id} className="audio-item">
-                    <a href={`/media/${d.relativePath}`} target="_blank" rel="noreferrer">{d.originalName}</a>
+                    <a href={d.publicUrl} target="_blank" rel="noreferrer">{d.originalName}</a>
                     <button type="button" className="danger" onClick={async () => { await api.delete(`/api/docs/files/${d.id}`); loadFiles(selected); }}>삭제</button>
                   </li>
                 ))}
